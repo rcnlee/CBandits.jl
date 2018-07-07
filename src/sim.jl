@@ -3,6 +3,7 @@ struct BanditSim
     G::ObjectiveFunc 
     metadata::Dict
 end
-BanditSim(b::Bandit, G::ObjectiveFunc) = BanditSim(b, G, Dict(:algorithm=>string(typeof(b)), 
-                                                              :objective=>string(typeof(G))))
+function BanditSim(b::Bandit, G::ObjectiveFunc) 
+    BanditSim(b, G, Dict(:sim_algorithm=>string(b), :sim_objective=>string(G)))
+end
 POMDPs.simulate(sim::BanditSim) = POMDPs.solve(sim.b, sim.G)
