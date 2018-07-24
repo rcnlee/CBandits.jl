@@ -208,7 +208,7 @@ end
 dist(x::Float64, y::Float64) = norm(x-y)
 
 
-using GaussianProcesses
+#See Srinivas2010 and Dorrard2009
 @with_kw mutable struct GPUCBGrid <: Bandit
     actiondistr::ActionDistr  = UniformActions()
     seed::Int               = 0

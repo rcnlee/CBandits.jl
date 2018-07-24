@@ -15,6 +15,7 @@ using POMDPs, POMDPToolbox
 using Distributions, StatsBase
 using Plots; pyplot()
 using Parameters
+using GaussianProcesses
 using ScikitLearnBase, Optim
 
 include("objectives.jl")

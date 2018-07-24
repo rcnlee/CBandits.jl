@@ -117,8 +117,8 @@ function run_study(study::GPkMetricStudy)
     for k in study.ks 
 		q = generate_sim_q(study, GPUCB; k=k)
 		results = pmap(POMDPs.simulate, q)
-        push!(cum_regrets, "$(string(GPUCB))-$k")=>mean(hcat([r.cum_regret for r in results]...),2))
-        push!(simple_regrets, "$(string(GPUCB))-$k")=>mean(hcat([r.simple_regret for r in results]...),2))
+        push!(cum_regrets, "$(string(GPUCB))-$k")=>mean(hcat([r.cum_regret for r in results]...),2)
+        push!(simple_regrets, "$(string(GPUCB))-$k")=>mean(hcat([r.simple_regret for r in results]...),2)
     end
     GPkMetricStudyResult(cum_regrets, simple_regrets)
 end
