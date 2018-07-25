@@ -9,7 +9,8 @@ export DistributionActions, UniformActions, GaussianActions
 export RandomBandit, RandomBanditResult, PWUCB, PWUCBResult, SBUCB, SBUCBResult
 export GPUCBGrid, GPUCBGridResult, GPUCB, GPUCBResult
 export metadata
-export BanditSim, MetricStudy, MetricStudyResult, generate_sim_q, run_study, SweepStudy, GPkMetricStudy, GPkMetricStudyResult
+export BanditSim, MetricStudy, MetricStudyResult, generate_sim_q, run_study, SweepStudy 
+export GPkMetricStudy, GPkMetricStudyResult, GPOptimMetricStudy, GPOptimMetricStudyResult
 
 using POMDPs, POMDPToolbox
 using Distributions, StatsBase

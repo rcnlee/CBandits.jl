@@ -1,4 +1,5 @@
 #studies
+#############
 @with_kw struct MetricStudy
     actiondistr     = UniformActions()
     G               = TwoBumps()
@@ -46,7 +47,7 @@ function Plots.plot(result::MetricStudyResult, ::Type{Val{:simple_regret}})
     p
 end
 
-
+#################
 @with_kw struct SweepStudy
     actiondistr     = UniformActions()
     G               = NarrowBump()
@@ -85,7 +86,7 @@ function run_study(study::SweepStudy, alg)
     data
 end
 
-
+#############
 @with_kw struct GPkMetricStudy
     actiondistr     = UniformActions()
     G               = TwoBumps()
@@ -132,6 +133,60 @@ function Plots.plot(result::GPkMetricStudyResult, ::Type{Val{:cum_regret}})
     p
 end
 function Plots.plot(result::GPkMetricStudyResult, ::Type{Val{:simple_regret}})
+    p = plot(; xlabel="number of samples", ylabel="simple regret")
+    for (alg,simple_regret) in result.simple_regrets
+        plot!(p, simple_regret, label=string(alg))
+    end
+    p
+end
+
+################
+@with_kw struct GPOptimMetricStudy
+    actiondistr     = UniformActions()
+    G               = TwoBumps()
+    n_seeds::Int    = 500
+    n_iters::Int    = 100
+    mean_inits::Vector{Int} = [8.0,5.0,3.0,2.0,0.0]
+end
+struct GPOptimMetricStudyResult
+    cum_regrets
+    simple_regrets 
+end
+function generate_sim_q(study::GPOptimMetricStudy, alg; kwargs...)
+    q = []
+    for i in 1:study.n_seeds
+        b = alg(; actiondistr=study.actiondistr, seed=i, n_iters=study.n_iters, 
+                outs=Set([:simple_regret, :cum_regret]), kwargs...) 
+        push!(q, BanditSim(b, study.G))
+    end
+    q
+end
+function run_study(study::GPOptimMetricStudy)
+    cum_regrets = [] 
+    simple_regrets = [] 
+    for alg in [RandomBandit, PWUCB, SBUCB, GPUCBGrid]
+		q = generate_sim_q(study, alg)
+		results = pmap(POMDPs.simulate, q)
+		push!(cum_regrets, string(alg)=>mean(hcat([r.cum_regret for r in results]...),2))
+		push!(simple_regrets, string(alg)=>mean(hcat([r.simple_regret for r in results]...),2))
+    end
+    for minit in study.mean_inits 
+		q = generate_sim_q(study, GPUCB; mean_init=minit)
+		results = pmap(POMDPs.simulate, q)
+        push!(cum_regrets, "$(string(GPUCB))-$minit"=>mean(hcat([r.cum_regret for r in results]...),2))
+        push!(simple_regrets, "$(string(GPUCB))-$minit"=>mean(hcat([r.simple_regret for r in results]...),2))
+    end
+    GPOptimMetricStudyResult(cum_regrets, simple_regrets)
+end
+Plots.plot(result::GPOptimMetricStudyResult, metric::Symbol) = plot(result, Val{metric})
+function Plots.plot(result::GPOptimMetricStudyResult, ::Type{Val{:cum_regret}})
+    p = plot(; xlabel="number of samples", ylabel="cumulative regret")
+    for (alg,cum_regret) in result.cum_regrets
+        plot!(p, cum_regret, label=string(alg))
+    end
+    p
+end
+function Plots.plot(result::GPOptimMetricStudyResult, ::Type{Val{:simple_regret}})
     p = plot(; xlabel="number of samples", ylabel="simple regret")
     for (alg,simple_regret) in result.simple_regrets
         plot!(p, simple_regret, label=string(alg))

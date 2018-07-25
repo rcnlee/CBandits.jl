@@ -214,6 +214,7 @@ dist(x::Float64, y::Float64) = norm(x-y)
     seed::Int               = 0
     n_iters::Int            = 100
     n_sig::Float64          = 2.0  #number of stdev's to add to mean (optimism)
+    mean_init::Float64      = 0.0
     log_length_scale        = -2.6
     log_signal_sigma        = 0.0
     log_obs_noise           = -1.0
@@ -222,7 +223,8 @@ end
 Base.string(b::GPUCBGrid) = "GPUCB-Grid"
 Base.string(b::Type{GPUCBGrid}) = "GPUCB-Grid"
 metadata(b::GPUCBGrid) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :n_sig=>b.n_sig, 
-                          :log_length_scale=>b.log_length_scale, :log_signal_sigma=>b.log_signal_sigma, 
+                          :mean_init=>b.mean_init, :log_length_scale=>b.log_length_scale, 
+                          :log_signal_sigma=>b.log_signal_sigma, 
                           :log_obs_noise=>b.log_obs_noise]
 struct GPUCBGridResult <: BanditResult
     actions::Vector{Float64}
@@ -240,9 +242,9 @@ function POMDPs.solve(b::GPUCBGrid, G::ObjectiveFunc, rng::AbstractRNG=MersenneT
     cum_regret = 0
     g_max = maximum(G) 
     xs = linspace(b.actiondistr.xmin,b.actiondistr.xmax,100)
-    mZero = MeanZero()
+    mconst = MeanConst(b.mean_init) 
     kern = SE(b.log_length_scale,b.log_signal_sigma)
-    gp = GP(actions, qs, mZero, kern, b.log_obs_noise) 
+    gp = GP(actions, qs, mconst, kern, b.log_obs_noise) 
     if :plot in b.outs #plot needs these vars initialized
         m, Σ = predict_f(gp, xs)
         ucb = b.n_sig*sqrt.(Σ)
@@ -302,6 +304,7 @@ end
     n_iters::Int            = 100
     k::Int                  = 10
     n_sig::Float64          = 2.0  #number of stdev's to add to mean (optimism)
+    mean_init::Float64      = 0.0
     log_length_scale        = -2.6
     log_signal_sigma        = 0.0
     log_obs_noise           = -1.0
@@ -309,7 +312,10 @@ end
 end
 Base.string(b::GPUCB) = "GPUCB"
 Base.string(b::Type{GPUCB}) = "GPUCB"
-metadata(b::GPUCB) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :k=>b.k, :n_sig=>b.n_sig]
+metadata(b::GPUCB) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :k=>b.k, :n_sig=>b.n_sig,
+                      :mean_init=>b.mean_init, :log_length_scale=>b.log_length_scale, 
+                      :log_signal_sigma=>b.log_signal_sigma, 
+                      :log_obs_noise=>b.log_obs_noise]
 struct GPUCBResult <: BanditResult
     actions::Vector{Float64}
     qs::Vector{Float64}
@@ -326,9 +332,9 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
     cum_regret = 0
     g_max = maximum(G) 
     plot_xs = linspace(b.actiondistr.xmin,b.actiondistr.xmax,100) #used for plotting only
-    mZero = MeanZero()
+    mconst = MeanConst(b.mean_init) 
     kern = SE(b.log_length_scale,b.log_signal_sigma)
-    gp = GP(actions, qs, mZero, kern, b.log_obs_noise) 
+    gp = GP(actions, qs, mconst, kern, b.log_obs_noise) 
     if :plot in b.outs #plot needs these vars initialized
         m, Σ = predict_f(gp, plot_xs)
         ucb = b.n_sig*sqrt.(Σ)
