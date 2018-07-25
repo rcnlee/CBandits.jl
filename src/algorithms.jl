@@ -213,15 +213,15 @@ dist(x::Float64, y::Float64) = norm(x-y)
     actiondistr::ActionDistr  = UniformActions()
     seed::Int               = 0
     n_iters::Int            = 100
-    sqrtβ::Float64          = 2.0  #number of stdev's to add to mean (optimism)
-    log_length_scale        = -2.3
+    n_sig::Float64          = 2.0  #number of stdev's to add to mean (optimism)
+    log_length_scale        = -2.6
     log_signal_sigma        = 0.0
-    log_obs_noise           = -2.0
+    log_obs_noise           = -1.0
     outs::Set{Symbol}       = Set{Symbol}()
 end
 Base.string(b::GPUCBGrid) = "GPUCB-Grid"
 Base.string(b::Type{GPUCBGrid}) = "GPUCB-Grid"
-metadata(b::GPUCBGrid) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :sqrtβ=>b.sqrtβ, 
+metadata(b::GPUCBGrid) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :n_sig=>b.n_sig, 
                           :log_length_scale=>b.log_length_scale, :log_signal_sigma=>b.log_signal_sigma, 
                           :log_obs_noise=>b.log_obs_noise]
 struct GPUCBGridResult <: BanditResult
@@ -244,8 +244,8 @@ function POMDPs.solve(b::GPUCBGrid, G::ObjectiveFunc, rng::AbstractRNG=MersenneT
     kern = SE(b.log_length_scale,b.log_signal_sigma)
     gp = GP(actions, qs, mZero, kern, b.log_obs_noise) 
     if :plot in b.outs #plot needs these vars initialized
-        m,v = predict_y(gp, xs)  
-        ucb = b.sqrtβ*sqrt.(v)
+        m, Σ = predict_f(gp, xs)
+        ucb = b.n_sig*sqrt.(Σ)
         ucbmax,i = findmax(m + ucb)
     end
     for n = 1:b.n_iters
@@ -256,8 +256,8 @@ function POMDPs.solve(b::GPUCBGrid, G::ObjectiveFunc, rng::AbstractRNG=MersenneT
         else
             ScikitLearnBase.fit!(gp, actions[:,1:1], qs)
             #optimize!(gp; method=Optim.BFGS())
-            m,v = predict_y(gp, xs)
-            ucb = b.sqrtβ*sqrt.(v)
+            m, Σ = predict_f(gp, xs)
+            ucb = b.n_sig*sqrt.(Σ)
             ucbmax,imax = findmax(m + ucb)
             push!(actions, xs[imax])
         end
@@ -272,11 +272,11 @@ function POMDPs.solve(b::GPUCBGrid, G::ObjectiveFunc, rng::AbstractRNG=MersenneT
         if :plot in b.outs
             p = plot(G)
             plot!(p, actions[1:end-1], qs[1:end-1], seriestype=:scatter, xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b))
-            plot!(p, xs, m; seriestype=:path, linestyle=:dash, ribbon=ucb)
+                  ylim=(-1.0,g_max+1.0), title=string(b), label="observations")
+            plot!(p, xs, m; seriestype=:path, linestyle=:dash, ribbon=ucb, label="predicted mean")
             plot!(p, actions[end:end], [ucbmax], seriestype=:scatter, markershape=:star4, 
                   xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b))
+                  ylim=(-1.0,g_max+1.0), title=string(b), label="ucb max")
             push!(result.plts, p)
         end
         if :simple_regret in b.outs
@@ -300,16 +300,16 @@ end
     actiondistr::ActionDistr  = UniformActions()
     seed::Int               = 0
     n_iters::Int            = 100
-    k::Int                  = 50
-    sqrtβ::Float64          = 2.0  #number of stdev's to add to mean (optimism)
-    log_length_scale        = -2.3
+    k::Int                  = 10
+    n_sig::Float64          = 2.0  #number of stdev's to add to mean (optimism)
+    log_length_scale        = -2.6
     log_signal_sigma        = 0.0
-    log_obs_noise           = -2.0
+    log_obs_noise           = -1.0
     outs::Set{Symbol}       = Set{Symbol}()
 end
 Base.string(b::GPUCB) = "GPUCB"
 Base.string(b::Type{GPUCB}) = "GPUCB"
-metadata(b::GPUCB) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :k=>b.k, :sqrtβ=>b.sqrtβ]
+metadata(b::GPUCB) = [:algorithm=>string(b), :seed=>b.seed, :n_iters=>b.n_iters, :k=>b.k, :n_sig=>b.n_sig]
 struct GPUCBResult <: BanditResult
     actions::Vector{Float64}
     qs::Vector{Float64}
@@ -330,8 +330,8 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
     kern = SE(b.log_length_scale,b.log_signal_sigma)
     gp = GP(actions, qs, mZero, kern, b.log_obs_noise) 
     if :plot in b.outs #plot needs these vars initialized
-        m,v = predict_y(gp, plot_xs)  
-        ucb = b.sqrtβ*sqrt.(v)
+        m, Σ = predict_f(gp, plot_xs)
+        ucb = b.n_sig*sqrt.(Σ)
         ucbmax,i = findmax(m + ucb)
     end
     for n = 1:b.n_iters
@@ -343,8 +343,8 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
             ScikitLearnBase.fit!(gp, actions[:,1:1], qs)
             #optimize!(gp; method=Optim.BFGS())
             xs = vcat(actions, [rand(rng, b.actiondistr) for i=1:b.k])
-            m,v = predict_y(gp, xs)
-            ucb = b.sqrtβ*sqrt.(v)
+            m, Σ = predict_f(gp, xs)
+            ucb = b.n_sig*sqrt.(Σ)
             ucbmax,imax = findmax(m + ucb)
             push!(actions, xs[imax])
         end
@@ -358,16 +358,17 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
         end
         if :plot in b.outs
             p = plot(G)
-            plot!(p, actions[1:end-1], qs[1:end-1], seriestype=:scatter, xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b))
+            plot!(p, actions[1:end-1], qs[1:end-1], seriestype=:scatter, 
+                  xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
+                  ylim=(-1.0,g_max+1.0), title=string(b), label="observations")
             if n != 1
-                m,v = predict_y(gp, plot_xs)
-                ucb = b.sqrtβ*sqrt.(v)
+                m, Σ = predict_f(gp, plot_xs)
+                ucb = b.n_sig*sqrt.(Σ)
                 ucbmax,imax = findmax(m + ucb)
-                plot!(p, plot_xs, m; seriestype=:path, linestyle=:dash, ribbon=ucb)
+                plot!(p, plot_xs, m; seriestype=:path, linestyle=:dash, ribbon=ucb, label="predicted mean")
                 plot!(p, actions[end:end], [ucbmax], seriestype=:scatter, markershape=:star4, 
                     xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                    ylim=(-1.0,g_max+1.0), title=string(b))
+                    ylim=(-1.0,g_max+1.0), title=string(b), label="ucb max")
             end
             push!(result.plts, p)
         end

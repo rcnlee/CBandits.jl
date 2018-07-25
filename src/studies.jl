@@ -13,7 +13,8 @@ end
 function generate_sim_q(study::MetricStudy, alg)
     q = []
     for i in 1:study.n_seeds
-        b = alg(; actiondistr=study.actiondistr, seed=i, n_iters=study.n_iters, outs=Set([:simple_regret, :cum_regret])) 
+        b = alg(; actiondistr=study.actiondistr, seed=i, n_iters=study.n_iters, 
+                outs=Set([:simple_regret, :cum_regret])) 
         push!(q, BanditSim(b, study.G))
     end
     q
@@ -21,7 +22,7 @@ end
 function run_study(study::MetricStudy)
     cum_regrets = [] 
     simple_regrets = [] 
-    for alg in [RandomBandit, PWUCB, SBUCB, GPUCBGrid]
+    for alg in [RandomBandit, PWUCB, SBUCB, GPUCB]
 		q = generate_sim_q(study, alg)
 		results = pmap(POMDPs.simulate, q)
 		push!(cum_regrets, string(alg)=>mean(hcat([r.cum_regret for r in results]...),2))
@@ -31,14 +32,14 @@ function run_study(study::MetricStudy)
 end
 Plots.plot(result::MetricStudyResult, metric::Symbol) = plot(result, Val{metric})
 function Plots.plot(result::MetricStudyResult, ::Type{Val{:cum_regret}})
-    p = plot(title="Cumulative regret")
+    p = plot(; ylabel="cumulative regret", xlabel="number of samples")
     for (alg,cum_regret) in result.cum_regrets
         plot!(p, cum_regret, label=string(alg))
     end
     p
 end
 function Plots.plot(result::MetricStudyResult, ::Type{Val{:simple_regret}})
-    p = plot(title="Simple regret")
+    p = plot(; ylabel="simple regret", xlabel="number of samples")
     for (alg,simple_regret) in result.simple_regrets
         plot!(p, simple_regret, label=string(alg))
     end
@@ -124,14 +125,14 @@ function run_study(study::GPkMetricStudy)
 end
 Plots.plot(result::GPkMetricStudyResult, metric::Symbol) = plot(result, Val{metric})
 function Plots.plot(result::GPkMetricStudyResult, ::Type{Val{:cum_regret}})
-    p = plot(title="Cumulative regret")
+    p = plot(; xlabel="number of samples", ylabel="cumulative regret")
     for (alg,cum_regret) in result.cum_regrets
         plot!(p, cum_regret, label=string(alg))
     end
     p
 end
 function Plots.plot(result::GPkMetricStudyResult, ::Type{Val{:simple_regret}})
-    p = plot(title="Simple regret")
+    p = plot(; xlabel="number of samples", ylabel="simple regret")
     for (alg,simple_regret) in result.simple_regrets
         plot!(p, simple_regret, label=string(alg))
     end

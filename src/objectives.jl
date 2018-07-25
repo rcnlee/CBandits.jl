@@ -48,13 +48,25 @@ function circle(x,y,r)
     translate!(c, x, y)
     c
 end
-function Plots.plot(o::ObjectiveFunc; xmin=-1.0, xmax=1.0, n=100)
-    xs = linspace(xmin, xmax, n)
-    plot(xs, truth.(o, xs))
+@recipe function f(o::ObjectiveFunc; xmin=-1.0, xmax=1.0, n=100)
+    @series begin
+        seriestype := :path
+        xlabel := "x"
+        ylabel := "f(x)"
+        label := "true mean"
+        xs = linspace(xmin, xmax, n)
+        xs, truth.(o, xs)
+    end
 end
-function Plots.plot(o::ObjectiveFunc, rng::AbstractRNG; xmin=-1.0, xmax=1.0, n=100)
-    xs = linspace(xmin, xmax, n)
-    plot(xs, o.(xs, rng))
+@recipe function f(o::ObjectiveFunc, rng::AbstractRNG; xmin=-1.0, xmax=1.0, n=100)
+    @series begin
+        seriestype := :path
+        xlabel := "x"
+        ylabel := "f(x)"
+        label := "true mean"
+        xs = linspace(xmin, xmax, n)
+        xs, o.(xs, rng)
+    end
 end
 
 function Base.maximum(o::ObjectiveFunc; xmin=-1.0, xmax=1.0, n=1000)
