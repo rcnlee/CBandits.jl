@@ -1,10 +1,19 @@
 abstract type ObjectiveFunc end
+abstract type Objective1D  <: ObjectiveFunc end
+abstract type Objective2D  <: ObjectiveFunc end
 
 #Test functions
-struct DistributionFunc <: ObjectiveFunc
+struct DistributionFunc <: Objective1D
     name::String
     d::Distribution
     σ::Float64
+    g_max::Float64
+    x_max::Float64
+end
+function DistributionFunc(name::String, d::Distribution, σ::Float64; xmin=-1.0, xmax=1.0, n=1000)
+    xs = linspace(xmin, xmax, n)
+    g_max, i_max = findmax(pdf.(d, xs))
+    DistributionFunc(name, d, σ, g_max, xs[i_max])
 end
 function NarrowBump(d=Normal(-0.25,0.05); σ=0.3)
     DistributionFunc("NarrowBump", d, σ)
@@ -27,28 +36,34 @@ function truth(o::DistributionFunc, x)
     pdf(o.d, x) 
 end
 Base.string(o::ObjectiveFunc) = o.name
-struct SincFunc <: ObjectiveFunc
+struct SincFunc <: Objective1D
     name::String
     a::Float64
     b::Float64
     c::Float64
     σ::Float64
+    g_max::Float64
+    x_max::Float64
 end
-function Sinc(; a=20, b=0.3, c=0.5, σ=0.3)
+function SincFunc(name::String, a::Float64, b::Float64, c::Float64, σ::Float64; xmin=-1.0, xmax=1.0, n=1000)
+    xs = linspace(xmin, xmax, n)
+    g_max, i_max = findmax(sinc_truth.(a, b, c, xs))
+    SincFunc(name, a, b, c, σ, g_max, xs[i_max])
+end
+function Sinc(; a=20.0, b=0.3, c=0.5, σ=0.3)
     SincFunc("Sinc", a,b,c,σ)
 end
 function (o::SincFunc)(x, rng::AbstractRNG=Base.GLOBAL_RNG)
-    sinc(o.a*(x-o.b)+o.c) + o.σ*randn(rng)
+    truth(o,x) + o.σ*randn(rng)
 end
-function truth(o::SincFunc, x)
-    sinc(o.a*(x-o.b)+o.c) 
-end
+truth(o::SincFunc, x) = sinc_truth(o.a, o.b, o.c, x)
+sinc_truth(a::Float64, b::Float64, c::Float64, x::Float64) = sinc(a * (x-b) + c) 
 function circle(x,y,r)
     c = Shape(Plots.partialcircle(0,2π,20,r))
     translate!(c, x, y)
     c
 end
-@recipe function f(o::ObjectiveFunc; xmin=-1.0, xmax=1.0, n=100)
+@recipe function f(o::Objective1D; xmin=-1.0, xmax=1.0, n=100)
     @series begin
         seriestype := :path
         xlabel := "x"
@@ -58,7 +73,29 @@ end
         xs, truth.(o, xs)
     end
 end
-@recipe function f(o::ObjectiveFunc, rng::AbstractRNG; xmin=-1.0, xmax=1.0, n=100)
+@recipe function f(o::Objective1D, rng::AbstractRNG; xmin=-1.0, xmax=1.0, n=100)
+    @series begin
+        seriestype := :path
+        xlabel := "x"
+        ylabel := "f(x)"
+        label := "true mean"
+        xs = linspace(xmin, xmax, n)
+        xs, o.(xs, rng)
+    end
+end
+@recipe function f(o::Objective2D; xmin=-1.0, xmax=1.0, n=100)
+    @assert false
+    @series begin
+        seriestype := :path
+        xlabel := "x"
+        ylabel := "f(x)"
+        label := "true mean"
+        xs = linspace(xmin, xmax, n)
+        xs, truth.(o, xs)
+    end
+end
+@recipe function f(o::Objective2D, rng::AbstractRNG; xmin=-1.0, xmax=1.0, n=100)
+    @assert false
     @series begin
         seriestype := :path
         xlabel := "x"
@@ -69,8 +106,4 @@ end
     end
 end
 
-function Base.maximum(o::ObjectiveFunc; xmin=-1.0, xmax=1.0, n=1000)
-    xs = linspace(xmin, xmax, n)
-    g_max = maximum(truth.(o, xs))
-    g_max
-end
+Base.maximum(o::Objective1D) = o.g_max

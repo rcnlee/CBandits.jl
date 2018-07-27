@@ -42,9 +42,7 @@ function POMDPs.solve(b::RandomBandit, G::ObjectiveFunc, rng::AbstractRNG=Mersen
             push!(result.cum_regret, cum_regret)
         end
         if :plot in b.outs
-            p = plot(G)
-            plot!(p, actions, qs, seriestype=:scatter, xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b))
+            p = plot(G, b, actions, qs, g_max)
             push!(result.plts, p)
         end
     end
@@ -52,6 +50,19 @@ function POMDPs.solve(b::RandomBandit, G::ObjectiveFunc, rng::AbstractRNG=Mersen
     append!(result.qs, qs)
     append!(result.ns, ones(length(actions)))
     result
+end
+@recipe function f(G::Objective1D, b::RandomBandit, actions, qs)
+    title := string(b)
+    g_max = maximum(G)
+    @series begin
+        G
+    end
+    @series begin
+        seriestype := :scatter
+        xlim := (b.actiondistr.xmin, b.actiondistr.xmax)
+        ylim := (-1.0,g_max+1.0)
+        actions, qs
+    end
 end
 function Plots.animate(result::BanditResult, filename="./result.gif"; fps=5, every=2)
     animate(result.plts, filename, fps=fps, every=every)
@@ -115,9 +126,7 @@ function POMDPs.solve(b::PWUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
             push!(result.cum_regret, cum_regret)
         end
         if :plot in b.outs
-            p = plot(G)
-            plot!(p, actions, qs, err=ebs, seriestype=:scatter, xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b))
+            p = plot(G, b, actions, qs, ebs)
             push!(result.plts, p)
         end
     end
@@ -125,6 +134,20 @@ function POMDPs.solve(b::PWUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
     append!(result.qs, qs)
     append!(result.ns, ones(length(actions)))
     result
+end
+@recipe function f(G::Objective1D, b::PWUCB, actions, qs, errbars)
+    g_max = maximum(G)
+    @series begin
+        G
+    end
+    @series begin
+        seriestype := :scatter
+        xlim := (b.actiondistr.xmin, b.actiondistr.xmax)
+        ylim := (-1.0,g_max+1.0)
+        title := string(b)
+        err := errbars
+        actions, qs
+    end
 end
 
 @with_kw mutable struct SBUCB <: Bandit
@@ -188,10 +211,7 @@ function POMDPs.solve(b::SBUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
         end
         if :plot in b.outs
             fill!(radii, b.k/n^b.α)
-            p = plot(G)
-            plot!(p, actions, qs, err=ebs, seriestype=:scatter, xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b))
-            plot!(p, [circle(actions[i],qs[i],radii[i]) for i=1:length(actions)], fillalpha=0.25)
+            p = plot(G, b, actions, qs, errbars, radii)
             push!(result.plts, p)
         end
         if :simple_regret in b.outs
@@ -206,6 +226,24 @@ function POMDPs.solve(b::SBUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
     result
 end
 dist(x::Float64, y::Float64) = norm(x-y)
+@recipe function f(G::Objective1D, b::SBUCB, actions, qs, errbars, radii)
+    title := string(b)
+    g_max = maximum(G)
+    @series begin
+        G
+    end
+    @series begin
+        seriestype := :scatter
+        xlim := (b.actiondistr.xmin, b.actiondistr.xmax)
+        ylim := (-1.0,g_max+1.0)
+        err := errbars
+        actions, qs
+    end
+    @series begin
+        fillalpha := 0.25
+        [circle(actions[i],qs[i],radii[i]) for i=1:length(actions)]
+    end
+end
 
 
 #See Srinivas2010 and Dorrard2009
@@ -272,13 +310,7 @@ function POMDPs.solve(b::GPUCBGrid, G::ObjectiveFunc, rng::AbstractRNG=MersenneT
             push!(result.cum_regret, cum_regret)
         end
         if :plot in b.outs
-            p = plot(G)
-            plot!(p, actions[1:end-1], qs[1:end-1], seriestype=:scatter, xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b), label="observations")
-            plot!(p, xs, m; seriestype=:path, linestyle=:dash, ribbon=ucb, label="predicted mean")
-            plot!(p, actions[end:end], [ucbmax], seriestype=:scatter, markershape=:star4, 
-                  xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b), label="ucb max")
+            p = plot(G, b, xs, m, actions, qs, ucb, ucbmax)
             push!(result.plts, p)
         end
         if :simple_regret in b.outs
@@ -296,6 +328,33 @@ function POMDPs.solve(b::GPUCBGrid, G::ObjectiveFunc, rng::AbstractRNG=MersenneT
     append!(result.qs, qs)
     append!(result.ns, ones(length(actions)))
     result
+end
+@recipe function f(G::Objective1D, b::GPUCBGrid, xs, m, actions, qs, ucb, ucbmax)
+    title := string(b)
+    g_max = maximum(G)
+    @series begin
+        G
+    end
+    @series begin
+        seriestype := :scatter
+        label := "observations"
+        xlim := (b.actiondistr.xmin, b.actiondistr.xmax)
+        ylim := (-1.0,g_max+1.0)
+        actions[1:end-1], qs[1:end-1]
+    end
+    @series begin
+        seriestype := :path
+        linestyle := :dash
+        ribbon := ucb
+        label := "predicted mean"
+        xs, m
+    end
+    @series begin
+        seriestype := :scatter
+        markershape := :star4
+        label := "ucb max"
+        actions[end:end], [ucbmax]
+    end
 end
 
 @with_kw mutable struct GPUCB <: Bandit
@@ -335,11 +394,6 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
     mconst = MeanConst(b.mean_init) 
     kern = SE(b.log_length_scale,b.log_signal_sigma)
     gp = GP(actions, qs, mconst, kern, b.log_obs_noise) 
-    if :plot in b.outs #plot needs these vars initialized
-        m, Σ = predict_f(gp, plot_xs)
-        ucb = b.n_sig*sqrt.(Σ)
-        ucbmax,i = findmax(m + ucb)
-    end
     for n = 1:b.n_iters
         if n == 1
             a = rand(rng, b.actiondistr)
@@ -363,20 +417,13 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
             push!(result.cum_regret, cum_regret)
         end
         if :plot in b.outs
-            p = plot(G)
-            plot!(p, actions[1:end-1], qs[1:end-1], seriestype=:scatter, 
-                  xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                  ylim=(-1.0,g_max+1.0), title=string(b), label="observations")
             if n != 1
                 m, Σ = predict_f(gp, plot_xs)
                 ucb = b.n_sig*sqrt.(Σ)
-                ucbmax,imax = findmax(m + ucb)
-                plot!(p, plot_xs, m; seriestype=:path, linestyle=:dash, ribbon=ucb, label="predicted mean")
-                plot!(p, actions[end:end], [ucbmax], seriestype=:scatter, markershape=:star4, 
-                    xlim=(b.actiondistr.xmin,b.actiondistr.xmax), 
-                    ylim=(-1.0,g_max+1.0), title=string(b), label="ucb max")
+                ucbmax,i = findmax(m + ucb)
+                p = plot(G, b, plot_xs, actions, qs, m, ucb, ucbmax)
+                push!(result.plts, p)
             end
-            push!(result.plts, p)
         end
         if :simple_regret in b.outs
             if n == 1
@@ -393,4 +440,31 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
     append!(result.qs, qs)
     append!(result.ns, ones(length(actions)))
     result
+end
+@recipe function f(G::Objective1D, b::GPUCB, xs, actions, qs, m, ucb, ucbmax)
+    title := string(b)
+    g_max = maximum(G)
+    @series begin
+        G
+    end
+    @series begin
+        seriestype := :scatter
+        label := "observations"
+        xlim := (b.actiondistr.xmin, b.actiondistr.xmax)
+        ylim := (-1.0,g_max+1.0)
+        actions[1:end-1], qs[1:end-1]
+    end
+    @series begin
+        seriestype := :path
+        linestyle := :dash
+        ribbon := ucb
+        label := "predicted mean"
+        xs, m
+    end
+    @series begin
+        seriestype := :scatter
+        markershape := :star4
+        label := "ucb max"
+        actions[end:end], [ucbmax]
+    end
 end
