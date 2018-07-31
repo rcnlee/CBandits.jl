@@ -14,6 +14,7 @@ export metadata
 export BanditSim, MetricStudy, MetricStudyResult, generate_sim_q, run_study, SweepStudy 
 export GPkMetricStudy, GPkMetricStudyResult, GPOptimMetricStudy, GPOptimMetricStudyResult
 export MetricStudy2D, MetricStudy2DResult
+export LengthScaleStudy2D, LengthScaleStudy2DResult
 
 using POMDPs, POMDPToolbox
 using Distributions, StatsBase

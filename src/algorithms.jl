@@ -408,7 +408,7 @@ end
 @recipe function plot(G::Objective2D, b::GPUCBGrid, gridpoints, m, actions, qs, ucb, ucbmax)
     title := string(b)
     zlim := (G.g_min - 1.0, G.g_max + 1.0) 
-    layout := @layout grid(1,2) 
+    layout := @layout grid(1,3) 
     @series begin
         subplot := 1
         G
@@ -424,10 +424,16 @@ end
     @series begin
         subplot := 2
         seriestype := :heatmap
-        #ribbon := ucb
-        label := "predicted mean"
+        title := "predicted mean"
         legend := true 
         b.grid.xs, b.grid.ys, reshape(m, (b.grid.n,b.grid.n))'
+    end
+    @series begin
+        subplot := 3
+        seriestype := :heatmap
+        title := "ucb"
+        legend := true 
+        b.grid.xs, b.grid.ys, reshape(ucb, (b.grid.n,b.grid.n))'
     end
 end
 
@@ -544,7 +550,7 @@ end
 @recipe function plot(G::Objective2D, b::GPUCB, gridpoints, m, actions, qs, ucb, ucbmax)
     title := string(b)
     zlim := (G.g_min - 1.0, G.g_max + 1.0) 
-    layout := @layout grid(1,2) 
+    layout := @layout grid(1,3) 
     @series begin
         subplot := 1
         G
@@ -560,9 +566,14 @@ end
     @series begin
         subplot := 2
         seriestype := :heatmap
-        #ribbon := ucb
-        label := "predicted mean"
+        title := "predicted mean"
         legend := true 
         b.grid.xs, b.grid.ys, reshape(m, (b.grid.n,b.grid.n))'
+    end
+    @series begin
+        subplot := 3
+        title := "ucb"
+        legend := true 
+        b.grid.xs, b.grid.ys, reshape(ucb, (b.grid.n,b.grid.n))'
     end
 end
