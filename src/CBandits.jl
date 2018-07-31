@@ -3,9 +3,11 @@ A package for bandit algorithms in 1D continuous space
 """
 module CBandits
 
-export ObjectiveFunc, DistributionFunc, SincFunc
+export ObjectiveFunc, Objective1D, Objective2D, DistributionFunc, SincFunc
 export NarrowBump, WideBump, TwoBumps, ThreeBumps, Sinc
-export DistributionActions, UniformActions, GaussianActions
+export DistributionFunc2D, NarrowBump2D, WideBump2D, Rosenbrock
+export DistributionActions, UniformActions, GaussianActions, GridActions
+export DistributionActions2D, UniformActions2D, GaussianActions2D, GridActions2D
 export RandomBandit, RandomBanditResult, PWUCB, PWUCBResult, SBUCB, SBUCBResult
 export GPUCBGrid, GPUCBGridResult, GPUCB, GPUCBResult
 export metadata
@@ -18,6 +20,7 @@ using Plots; pyplot()
 using Parameters
 using GaussianProcesses
 using ScikitLearnBase, Optim
+using TestFunctions
 
 include("objectives.jl")
 include("action_dists.jl")
