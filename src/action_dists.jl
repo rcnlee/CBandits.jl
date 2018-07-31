@@ -15,13 +15,14 @@ function Base.rand(rng::AbstractRNG, o::DistributionActions)
 end
 @recipe function plot(o::DistributionActions; xmin=-1.0, xmax=1.0, n=100)
     xs = linspace(xmin, xmax, n)
-    ys = pdf.(o.d, xs)
+    ys = pdf.(o, xs)
     xlim := xmin,xmax 
     ylim := (0.0, maximum(ys)+0.5)
     @series begin
         xs, ys
     end
 end
+Distributions.pdf(o::DistributionActions, x) = pdf(o.d, x)
 
 #####
 struct UniformActions2D <: ActionDistr
@@ -52,6 +53,11 @@ struct GridActions
     xlim::Tuple{Float64,Float64}
     n::Int
     X::Vector{Float64}
+
+    function GridActions(xlim::Tuple{Float64,Float64}, n::Int)
+        X = linspace(xlim..., n) |> collect
+        new(xlim, n, X)
+    end
 end
 GridActions() = GridActions((-1.0,1.0), 100)
 grid_points(A::GridActions) = A.X

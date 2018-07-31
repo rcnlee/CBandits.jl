@@ -193,3 +193,57 @@ function Plots.plot(result::GPOptimMetricStudyResult, ::Type{Val{:simple_regret}
     end
     p
 end
+
+####
+@with_kw struct MetricStudy2D
+    actiondistr     = UniformActions2D()
+    G               = WideBump2D()
+    n_seeds::Int    = 20 
+    n_iters::Int    = 200
+end
+struct MetricStudy2DResult
+    cum_regrets
+    simple_regrets 
+end
+
+function generate_sim_q(study::MetricStudy2D, alg; kwargs...)
+    q = []
+    for i in 1:study.n_seeds
+        b = alg(; actiondistr=study.actiondistr, seed=i, n_iters=study.n_iters, 
+                outs=Set([:simple_regret, :cum_regret]), kwargs...)
+        push!(q, BanditSim(b, study.G))
+    end
+    q
+end
+function run_study(study::MetricStudy2D)
+    cum_regrets = [] 
+    simple_regrets = [] 
+    for alg in [RandomBandit, PWUCB, SBUCB]
+		q = generate_sim_q(study, alg)
+		results = pmap(POMDPs.simulate, q)
+		push!(cum_regrets, string(alg)=>mean(hcat([r.cum_regret for r in results]...),2))
+		push!(simple_regrets, string(alg)=>mean(hcat([r.simple_regret for r in results]...),2))
+    end
+    for alg in [GPUCBGrid, GPUCB]
+        q = generate_sim_q(study, alg, log_length_scale=-0.5, grid=GridActions2D())
+		results = pmap(POMDPs.simulate, q)
+		push!(cum_regrets, string(alg)=>mean(hcat([r.cum_regret for r in results]...),2))
+		push!(simple_regrets, string(alg)=>mean(hcat([r.simple_regret for r in results]...),2))
+    end
+    MetricStudy2DResult(cum_regrets, simple_regrets)
+end
+Plots.plot(result::MetricStudy2DResult, metric::Symbol) = plot(result, Val{metric})
+function Plots.plot(result::MetricStudy2DResult, ::Type{Val{:cum_regret}})
+    p = plot(; ylabel="cumulative regret", xlabel="number of samples")
+    for (alg,cum_regret) in result.cum_regrets
+        plot!(p, cum_regret, label=string(alg))
+    end
+    p
+end
+function Plots.plot(result::MetricStudy2DResult, ::Type{Val{:simple_regret}})
+    p = plot(; ylabel="simple regret", xlabel="number of samples")
+    for (alg,simple_regret) in result.simple_regrets
+        plot!(p, simple_regret, label=string(alg))
+    end
+    p
+end

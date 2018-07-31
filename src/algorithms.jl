@@ -475,13 +475,13 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
             push!(actions, a)
             imax = 1
         else
-            GaussianProcesses.fit!(gp, vec2mat(actions), qs)
+            GaussianProcesses.fit!(gp, vec2mat(actions), qs)  #fit over existing actions
             #optimize!(gp; method=Optim.BFGS())
             xs = vcat(actions, [rand(rng, b.actiondistr) for i=1:b.k])
-            m, Σ = predict_f(gp, vec2mat(xs))
+            m, Σ = predict_f(gp, vec2mat(xs))  #over actions and k random samples from proposal distribution
             ucb = b.n_sig*sqrt.(Σ)
             ucbmax,imax = findmax(m + ucb)
-            push!(actions, getindex_mat(xs,imax))
+            push!(actions, xs[imax])
         end
         x = actions[end] 
         r = G(x, rng)
@@ -493,10 +493,10 @@ function POMDPs.solve(b::GPUCB, G::ObjectiveFunc, rng::AbstractRNG=MersenneTwist
         end
         if :plot in b.outs
             if n != 1
-                m, Σ = predict_f(gp, gridpoints)
-                ucb = b.n_sig*sqrt.(Σ)
-                ucbmax,i = findmax(m + ucb)
-                p = plot(G, b, gridpoints, m, actions, qs, ucb, ucbmax)
+                m´, Σ´ = predict_f(gp, gridpoints) #over plotting grid
+                ucb´ = b.n_sig*sqrt.(Σ´)
+                ucbmax´ = maximum(m´ + ucb´)
+                p = plot(G, b, gridpoints, m´, actions, qs, ucb´, ucbmax´)
                 push!(result.plts, p)
             end
         end
